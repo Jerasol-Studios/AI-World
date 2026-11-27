@@ -19,13 +19,14 @@ jobs:
         with:
           token: ${{ secrets.PAT_TOKEN }}
 
-      - name: 1. Signal BETA Server Ready (Opens Alpha's Rift)
+      - name: 1. Signal BETA Ready (Opens Alpha's Rift)
         run: |
           git config user.name "Grid Bot"
-          git config user.email "bot@://github.com"
+          git config user.email "bot@users.noreply.github.com"
           jq '.incomingServerReady=true' checkpoints/active/world.json > tmp.json && mv tmp.json checkpoints/active/world.json
           git add checkpoints/active/world.json
           git commit -m "Beta: Ready to receive Rift"
+          git pull --rebase
           git push
 
       - name: 2. Wait for Alpha to Finish Transfer Window
@@ -39,37 +40,48 @@ jobs:
 
       - name: 3. Take Over Active Simulation
         env:
-          SESSION: ${{ github.event.inputs.session }}
+          SESSION: ${{ github.event.inputs.session || '2' }}
         run: |
           git pull --rebase
           jq --arg s "$SESSION" '.server="BETA" | .nextServer="ALPHA" | .session=($s|tonumber) | .phase="ACTIVE_SIMULATION" | .incomingServerReady=false | .entities[].crossed=false | .logs += [{"type":"system","text":"[BETA]: Session #\($s) active. Welcome through the Rift."}]' checkpoints/active/world.json > tmp.json && mv tmp.json checkpoints/active/world.json
           git add checkpoints/active/world.json
           git commit -m "Beta S$SESSION: Active"
+          git pull --rebase
           git push
 
       - name: 4. Run Active Simulation (Change sleep 60 to 4800 for 80 mins)
         run: sleep 60
 
-      - name: 5. Boot Next Server (ALPHA) & Repeat
+      - name: 5. Boot Next Server (ALPHA) First
         env:
           GH_TOKEN: ${{ secrets.PAT_TOKEN }}
-          SESSION: ${{ github.event.inputs.session }}
+          SESSION: ${{ github.event.inputs.session || '2' }}
         run: |
           NEXT=$(( SESSION + 1 ))
           gh workflow run grid-alpha.yml -f session="$NEXT"
+
+      - name: 6. Wait for ALPHA Ready, Then Open Rift
+        run: |
           for i in {1..30}; do
             git pull --rebase
             READY=$(jq -r '.incomingServerReady' checkpoints/active/world.json)
             if [ "$READY" = "true" ]; then break; fi
             sleep 3
           done
-          jq '.phase="RIFT_OPEN" | .logs += [{"type":"rift","text":"[RIFT OPEN]: ALPHA server online! Walk through the portal."}]' checkpoints/active/world.json > tmp.json && mv tmp.json checkpoints/active/world.json
+          jq '.phase="RIFT_OPEN" | .logs += [{"type":"rift","text":"[RIFT OPEN]: ALPHA server online! Walk through the portal to transfer."}]' checkpoints/active/world.json > tmp.json && mv tmp.json checkpoints/active/world.json
           git add checkpoints/active/world.json
           git commit -m "Beta: Rift Open"
-          git push
-          sleep 30
           git pull --rebase
-          jq '.phase="WORLD_CLOSING" | .entities[].crossed=true' checkpoints/active/world.json > tmp.json && mv tmp.json checkpoints/active/world.json
+          git push
+
+      - name: 7. Transfer Window (Change sleep 30 to 1800 for 30 mins)
+        run: sleep 30
+
+      - name: 8. Signal World Closing
+        run: |
+          git pull --rebase
+          jq '.phase="WORLD_CLOSING" | .entities[].crossed=true | .logs += [{"type":"rift","text":"[CLOSING]: All binaries migrated. Beta shutting down."}]' checkpoints/active/world.json > tmp.json && mv tmp.json checkpoints/active/world.json
           git add checkpoints/active/world.json
           git commit -m "Beta: World Closing"
+          git pull --rebase
           git push
