@@ -2,7 +2,7 @@
   "server": "ALPHA",
   "nextServer": "BETA",
   "session": 5,
-  "phase": "RIFT_OPEN",
+  "phase": "WORLD_CLOSING",
   "incomingServerReady": true,
   "gridSize": 12,
   "entities": [
@@ -16,7 +16,7 @@
         "vision_boost.so"
       ],
       "status": "Online",
-      "crossed": false
+      "crossed": true
     },
     {
       "id": "purist_02.x86_64",
@@ -26,7 +26,7 @@
       "compute": 19,
       "modules": [],
       "status": "Static Core",
-      "crossed": false
+      "crossed": true
     },
     {
       "id": "warden_03.x86_64",
@@ -38,7 +38,7 @@
         "compiler_forge.so"
       ],
       "status": "Patrolling",
-      "crossed": false
+      "crossed": true
     },
     {
       "id": "oracle.x86_64",
@@ -50,14 +50,10 @@
         "gemini_bridge.so"
       ],
       "status": "Observing",
-      "crossed": false
+      "crossed": true
     }
   ],
   "logs": [
-    {
-      "type": "rift",
-      "text": "[RIFT OPEN]: BETA server online! Walk through the portal to transfer."
-    },
     {
       "type": "rift",
       "text": "[CLOSING]: All binaries migrated. Alpha shutting down."
@@ -153,13 +149,17 @@
     {
       "type": "rift",
       "text": "[RIFT OPEN]: BETA server online! Walk through the portal."
+    },
+    {
+      "type": "rift",
+      "text": "[CLOSING]: Transfer window closed. Alpha shutting down."
     }
   ],
   "telemetry": {
     "workflow": "grid-alpha.yml",
     "runId": "45952864612",
     "runNumber": "67",
-    "lastHeartbeat": "2026-11-27T06:37:43Z"
+    "lastHeartbeat": "2026-11-27T06:38:14Z"
   },
-  "transferWindowOpen": true
+  "transferWindowOpen": false
 }
