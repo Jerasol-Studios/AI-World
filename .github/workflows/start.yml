@@ -1,10 +1,8 @@
 name: Start The Grid (Pages + Alpha Boot)
 
 on:
-  # Optional: Automatically wakes The Grid every morning at 08:00 JST (23:00 UTC)
   schedule:
-    - cron: '0 23 * * *'
-  # Manual 1-click boot button in the Actions tab
+    - cron: '0 23 * * *' # 08:00 JST daily auto-boot
   workflow_dispatch:
     inputs:
       session:
@@ -23,29 +21,20 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # Job 1: Build & Deploy the 3D HTML Grid to GitHub Pages
   deploy-pages:
     runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: Checkout Repo
-        uses: actions/checkout@v4
-
-      - name: Setup GitHub Pages
-        uses: actions/configure-pages@v5
-
-      - name: Upload 3D Grid Site Artifact
-        uses: actions/upload-pages-artifact@v4
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v4
         with:
           path: '.'
-
-      - name: Deploy to GitHub Pages
-        id: deployment
+      - id: deployment
         uses: actions/deploy-pages@v4
 
-  # Job 2: Boot Alpha Session #1 right after Pages is live
   boot-alpha:
     needs: deploy-pages
     runs-on: ubuntu-latest
@@ -55,6 +44,4 @@ jobs:
           GH_TOKEN: ${{ secrets.PAT_TOKEN }}
           SESSION: ${{ github.event.inputs.session || '1' }}
         run: |
-          echo "3D Grid UI is live! Booting Alpha Session #$SESSION..."
           gh workflow run grid-alpha.yml -R "${{ github.repository }}" -f session="$SESSION"
-
