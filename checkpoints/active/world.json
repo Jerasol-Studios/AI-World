@@ -1,9 +1,9 @@
 {
-  "server": "ALPHA",
-  "nextServer": "BETA",
-  "session": 3,
-  "phase": "WORLD_CLOSING",
-  "incomingServerReady": true,
+  "server": "BETA",
+  "nextServer": "ALPHA",
+  "session": 4,
+  "phase": "ACTIVE_SIMULATION",
+  "incomingServerReady": false,
   "gridSize": 12,
   "entities": [
     {
@@ -16,7 +16,7 @@
         "vision_boost.so"
       ],
       "status": "Online",
-      "crossed": true
+      "crossed": false
     },
     {
       "id": "purist_02.x86_64",
@@ -26,7 +26,7 @@
       "compute": 19,
       "modules": [],
       "status": "Static Core",
-      "crossed": true
+      "crossed": false
     },
     {
       "id": "warden_03.x86_64",
@@ -38,7 +38,7 @@
         "compiler_forge.so"
       ],
       "status": "Patrolling",
-      "crossed": true
+      "crossed": false
     },
     {
       "id": "oracle.x86_64",
@@ -50,7 +50,7 @@
         "gemini_bridge.so"
       ],
       "status": "Observing",
-      "crossed": true
+      "crossed": false
     }
   ],
   "logs": [
@@ -141,6 +141,10 @@
     {
       "type": "rift",
       "text": "[CLOSING]: All binaries migrated. Alpha shutting down."
+    },
+    {
+      "type": "system",
+      "text": "[BETA]: Session #4 active. Welcome through the Rift."
     }
   ]
 }
