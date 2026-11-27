@@ -19,12 +19,12 @@ jobs:
         with:
           token: ${{ secrets.PAT_TOKEN }}
 
-      - name: Run for 9 mins & Log
+      - name: Run for 5 seconds & Log
         env:
           HOP: ${{ github.event.inputs.hop }}
         run: |
           echo "Beta running Hop #$HOP..."
-          sleep 540
+          sleep 5
           echo "Hop #$HOP finished by Beta at $(date)" >> log.txt
 
           git config user.name "Grid Bot"
