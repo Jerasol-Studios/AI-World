@@ -3,7 +3,7 @@ name: Grid Beta
 on:
   workflow_dispatch:
     inputs:
-      hop:
+      session:
         default: '2'
 
 permissions:
@@ -13,30 +13,63 @@ permissions:
 jobs:
   beta:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
         with:
           token: ${{ secrets.PAT_TOKEN }}
 
-      - name: Run for 5 seconds & Log
-        env:
-          HOP: ${{ github.event.inputs.hop }}
+      - name: 1. Signal BETA Server Ready (Opens Alpha's Rift)
         run: |
-          echo "Beta running Hop #$HOP..."
-          sleep 5
-          echo "Hop #$HOP finished by Beta at $(date)" >> log.txt
-
           git config user.name "Grid Bot"
           git config user.email "bot@://github.com"
-          git add log.txt
-          git commit -m "Hop $HOP (Beta)"
+          jq '.incomingServerReady=true' checkpoints/active/world.json > tmp.json && mv tmp.json checkpoints/active/world.json
+          git add checkpoints/active/world.json
+          git commit -m "Beta: Ready to receive Rift"
           git push
 
-      - name: Start Alpha
+      - name: 2. Wait for Alpha to Finish Transfer Window
+        run: |
+          for i in {1..400}; do
+            git pull --rebase
+            PHASE=$(jq -r '.phase' checkpoints/active/world.json)
+            if [ "$PHASE" = "WORLD_CLOSING" ]; then break; fi
+            sleep 5
+          done
+
+      - name: 3. Take Over Active Simulation
+        env:
+          SESSION: ${{ github.event.inputs.session }}
+        run: |
+          git pull --rebase
+          jq --arg s "$SESSION" '.server="BETA" | .nextServer="ALPHA" | .session=($s|tonumber) | .phase="ACTIVE_SIMULATION" | .incomingServerReady=false | .entities[].crossed=false | .logs += [{"type":"system","text":"[BETA]: Session #\($s) active. Welcome through the Rift."}]' checkpoints/active/world.json > tmp.json && mv tmp.json checkpoints/active/world.json
+          git add checkpoints/active/world.json
+          git commit -m "Beta S$SESSION: Active"
+          git push
+
+      - name: 4. Run Active Simulation (Change sleep 60 to 4800 for 80 mins)
+        run: sleep 60
+
+      - name: 5. Boot Next Server (ALPHA) & Repeat
         env:
           GH_TOKEN: ${{ secrets.PAT_TOKEN }}
-          HOP: ${{ github.event.inputs.hop }}
+          SESSION: ${{ github.event.inputs.session }}
         run: |
-          NEXT=$(( HOP + 1 ))
-          gh workflow run grid-alpha.yml -f hop="$NEXT"
+          NEXT=$(( SESSION + 1 ))
+          gh workflow run grid-alpha.yml -f session="$NEXT"
+          for i in {1..30}; do
+            git pull --rebase
+            READY=$(jq -r '.incomingServerReady' checkpoints/active/world.json)
+            if [ "$READY" = "true" ]; then break; fi
+            sleep 3
+          done
+          jq '.phase="RIFT_OPEN" | .logs += [{"type":"rift","text":"[RIFT OPEN]: ALPHA server online! Walk through the portal."}]' checkpoints/active/world.json > tmp.json && mv tmp.json checkpoints/active/world.json
+          git add checkpoints/active/world.json
+          git commit -m "Beta: Rift Open"
+          git push
+          sleep 30
+          git pull --rebase
+          jq '.phase="WORLD_CLOSING" | .entities[].crossed=true' checkpoints/active/world.json > tmp.json && mv tmp.json checkpoints/active/world.json
+          git add checkpoints/active/world.json
+          git commit -m "Beta: World Closing"
+          git push
