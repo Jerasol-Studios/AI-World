@@ -1,9 +1,9 @@
 {
-  "server": "BETA",
-  "nextServer": "ALPHA",
-  "session": 4,
-  "phase": "WORLD_CLOSING",
-  "incomingServerReady": true,
+  "server": "ALPHA",
+  "nextServer": "BETA",
+  "session": 5,
+  "phase": "ACTIVE_SIMULATION",
+  "incomingServerReady": false,
   "gridSize": 12,
   "entities": [
     {
@@ -16,7 +16,7 @@
         "vision_boost.so"
       ],
       "status": "Online",
-      "crossed": true
+      "crossed": false
     },
     {
       "id": "purist_02.x86_64",
@@ -26,7 +26,7 @@
       "compute": 19,
       "modules": [],
       "status": "Static Core",
-      "crossed": true
+      "crossed": false
     },
     {
       "id": "warden_03.x86_64",
@@ -38,7 +38,7 @@
         "compiler_forge.so"
       ],
       "status": "Patrolling",
-      "crossed": true
+      "crossed": false
     },
     {
       "id": "oracle.x86_64",
@@ -50,14 +50,10 @@
         "gemini_bridge.so"
       ],
       "status": "Observing",
-      "crossed": true
+      "crossed": false
     }
   ],
   "logs": [
-    {
-      "type": "system",
-      "text": "[GRID]: World state initialized."
-    },
     {
       "type": "system",
       "text": "[ALPHA]: Session #1 active."
@@ -153,12 +149,17 @@
     {
       "type": "rift",
       "text": "[CLOSING]: All binaries migrated. Beta shutting down."
+    },
+    {
+      "type": "system",
+      "text": "[ALPHA]: Session #5 active (Run #67)."
     }
   ],
   "telemetry": {
     "workflow": "grid-alpha.yml",
     "runId": "45952864612",
     "runNumber": "67",
-    "lastHeartbeat": "2026-11-27T06:35:52Z"
-  }
+    "lastHeartbeat": "2026-11-27T06:36:27Z"
+  },
+  "transferWindowOpen": false
 }
