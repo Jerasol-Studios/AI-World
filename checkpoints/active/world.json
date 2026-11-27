@@ -2,7 +2,7 @@
   "server": "BETA",
   "nextServer": "ALPHA",
   "session": 22,
-  "phase": "ACTIVE_SIMULATION",
+  "phase": "RIFT_OPEN",
   "incomingServerReady": true,
   "gridSize": 12,
   "entities": [
@@ -54,10 +54,6 @@
     }
   ],
   "logs": [
-    {
-      "type": "system",
-      "text": "[BETA]: Session #10 active (Run #68). Welcome through the Rift."
-    },
     {
       "type": "rift",
       "text": "[RIFT OPEN]: ALPHA server online! Walk through the portal."
@@ -153,13 +149,17 @@
     {
       "type": "system",
       "text": "[BETA]: Session #22 active (Run #74). Welcome through the Rift."
+    },
+    {
+      "type": "rift",
+      "text": "[RIFT OPEN]: ALPHA server online! Walk through the portal."
     }
   ],
   "telemetry": {
-    "workflow": "grid-alpha.yml",
-    "runId": "46038052400",
-    "runNumber": "80",
-    "lastHeartbeat": "2026-11-27T16:58:40Z"
+    "workflow": "grid-beta.yml",
+    "runId": "46033975690",
+    "runNumber": "74",
+    "lastHeartbeat": "2026-11-27T16:58:43Z"
   },
-  "transferWindowOpen": false
+  "transferWindowOpen": true
 }
