@@ -3,7 +3,7 @@
   "nextServer": "BETA",
   "session": 1,
   "phase": "ACTIVE_SIMULATION",
-  "incomingServerReady": false,
+  "incomingServerReady": true,
   "gridSize": 12,
   "entities": [
     {
