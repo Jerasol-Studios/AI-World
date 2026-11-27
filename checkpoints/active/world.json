@@ -3,7 +3,7 @@
   "nextServer": "ALPHA",
   "session": 4,
   "phase": "ACTIVE_SIMULATION",
-  "incomingServerReady": false,
+  "incomingServerReady": true,
   "gridSize": 12,
   "entities": [
     {
@@ -146,5 +146,11 @@
       "type": "system",
       "text": "[BETA]: Session #4 active. Welcome through the Rift."
     }
-  ]
+  ],
+  "telemetry": {
+    "workflow": "grid-alpha.yml",
+    "runId": "45952864612",
+    "runNumber": "67",
+    "lastHeartbeat": "2026-11-27T06:35:52Z"
+  }
 }
