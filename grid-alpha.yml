@@ -1,0 +1,42 @@
+name: Grid Alpha
+
+on:
+  workflow_dispatch:
+    inputs:
+      hop:
+        default: '1'
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  alpha:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PAT_TOKEN }}
+
+      - name: Run for 9 mins & Log
+        env:
+          HOP: ${{ github.event.inputs.hop || '1' }}
+        run: |
+          echo "Alpha running Hop #$HOP..."
+          sleep 540
+          echo "Hop #$HOP finished by Alpha at $(date)" >> log.txt
+
+          git config user.name "Grid Bot"
+          git config user.email "bot@://github.com"
+          git add log.txt
+          git commit -m "Hop $HOP (Alpha)"
+          git push
+
+      - name: Start Beta
+        env:
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
+          HOP: ${{ github.event.inputs.hop || '1' }}
+        run: |
+          NEXT=$(( HOP + 1 ))
+          gh workflow run grid-beta.yml -f hop="$NEXT"
