@@ -1,7 +1,7 @@
 {
   "server": "ALPHA",
   "nextServer": "BETA",
-  "session": 3,
+  "session": 1,
   "phase": "ACTIVE_SIMULATION",
   "incomingServerReady": false,
   "gridSize": 12,
@@ -85,6 +85,10 @@
     {
       "type": "system",
       "text": "[ALPHA]: Session #3 active."
+    },
+    {
+      "type": "system",
+      "text": "[ALPHA]: Session #1 active."
     }
   ]
 }
