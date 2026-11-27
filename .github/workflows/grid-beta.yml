@@ -10,6 +10,10 @@ permissions:
   contents: write
   actions: write
 
+concurrency:
+  group: "grid-beta-runner"
+  cancel-in-progress: false
+
 jobs:
   beta:
     runs-on: ubuntu-latest
@@ -19,69 +23,96 @@ jobs:
         with:
           token: ${{ secrets.PAT_TOKEN }}
 
-      - name: 1. Signal BETA Ready (Opens Alpha's Rift)
+      - name: 1. Handshake & Take Over Active Simulation
+        env:
+          SESSION: ${{ github.event.inputs.session || '2' }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_NUM: ${{ github.run_number }}
         run: |
           git config user.name "Grid Bot"
-          git config user.email "bot@users.noreply.github.com"
-          jq '.incomingServerReady=true' checkpoints/active/world.json > tmp.json && mv tmp.json checkpoints/active/world.json
-          git add checkpoints/active/world.json
-          git commit -m "Beta: Ready to receive Rift"
-          git pull --rebase
-          git push
+          git config user.email "bot@://github.com"
 
-      - name: 2. Wait for Alpha to Finish Transfer Window
-        run: |
+          push_state() {
+            for attempt in 1 2 3 4 5; do
+              git add checkpoints/
+              git commit -m "$1" || true
+              git pull --rebase && git push && break
+              sleep 2
+            done
+          }
+
+          NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          jq --arg now "$NOW" --arg rid "$RUN_ID" --arg rnum "$RUN_NUM" \
+            '.incomingServerReady=true | .telemetry={"workflow":"grid-beta.yml","runId":$rid,"runNumber":$rnum,"lastHeartbeat":$now}' \
+            checkpoints/active/world.json > tmp.json && mv tmp.json checkpoints/active/world.json
+          push_state "Beta: Ready to receive Rift"
+
           for i in {1..400}; do
             git pull --rebase
             PHASE=$(jq -r '.phase' checkpoints/active/world.json)
             if [ "$PHASE" = "WORLD_CLOSING" ]; then break; fi
-            sleep 5
+            sleep 4
           done
 
-      - name: 3. Take Over Active Simulation
+          NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          jq --arg s "$SESSION" --arg now "$NOW" --arg rid "$RUN_ID" --arg rnum "$RUN_NUM" \
+            '.server="BETA" | .nextServer="ALPHA" | .session=($s|tonumber) | .phase="ACTIVE_SIMULATION" | .transferWindowOpen=false | .incomingServerReady=false | .entities[].crossed=false | .telemetry={"workflow":"grid-beta.yml","runId":$rid,"runNumber":$rnum,"lastHeartbeat":$now} | .logs = (.logs + [{"type":"system","text":"[BETA]: Session #\($s) active (Run #\($rnum)). Welcome through the Rift."}] | .[-25:])' \
+            checkpoints/active/world.json > tmp.json && mv tmp.json checkpoints/active/world.json
+          push_state "Beta S$SESSION: Active"
+
+      - name: 2. Active Simulation + Heartbeats (2 ticks x 30s = 60s test; change to 40 x 120s for 80m)
         env:
-          SESSION: ${{ github.event.inputs.session || '2' }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_NUM: ${{ github.run_number }}
         run: |
-          git pull --rebase
-          jq --arg s "$SESSION" '.server="BETA" | .nextServer="ALPHA" | .session=($s|tonumber) | .phase="ACTIVE_SIMULATION" | .incomingServerReady=false | .entities[].crossed=false | .logs += [{"type":"system","text":"[BETA]: Session #\($s) active. Welcome through the Rift."}]' checkpoints/active/world.json > tmp.json && mv tmp.json checkpoints/active/world.json
-          git add checkpoints/active/world.json
-          git commit -m "Beta S$SESSION: Active"
-          git pull --rebase
-          git push
+          for tick in 1 2; do
+            sleep 30
+            git pull --rebase
+            NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+            jq --arg now "$NOW" --arg rid "$RUN_ID" --arg rnum "$RUN_NUM" \
+              '.telemetry={"workflow":"grid-beta.yml","runId":$rid,"runNumber":$rnum,"lastHeartbeat":$now}' \
+              checkpoints/active/world.json > tmp.json && mv tmp.json checkpoints/active/world.json
+            git add checkpoints/active/world.json
+            git commit -m "Beta heartbeat #$tick" || true
+            git pull --rebase && git push || true
+          done
 
-      - name: 4. Run Active Simulation (Change sleep 60 to 4800 for 80 mins)
-        run: sleep 60
-
-      - name: 5. Boot Next Server (ALPHA) First
+      - name: 3. Boot ALPHA, Open Rift, Transfer & Close
         env:
           GH_TOKEN: ${{ secrets.PAT_TOKEN }}
           SESSION: ${{ github.event.inputs.session || '2' }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_NUM: ${{ github.run_number }}
         run: |
           NEXT=$(( SESSION + 1 ))
-          gh workflow run grid-alpha.yml -f session="$NEXT"
+          gh workflow run grid-alpha.yml -R "${{ github.repository }}" -f session="$NEXT"
 
-      - name: 6. Wait for ALPHA Ready, Then Open Rift
-        run: |
           for i in {1..30}; do
             git pull --rebase
             READY=$(jq -r '.incomingServerReady' checkpoints/active/world.json)
             if [ "$READY" = "true" ]; then break; fi
             sleep 3
           done
-          jq '.phase="RIFT_OPEN" | .logs += [{"type":"rift","text":"[RIFT OPEN]: ALPHA server online! Walk through the portal to transfer."}]' checkpoints/active/world.json > tmp.json && mv tmp.json checkpoints/active/world.json
+
+          NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          jq --arg now "$NOW" --arg rid "$RUN_ID" --arg rnum "$RUN_NUM" \
+            '.phase="RIFT_OPEN" | .transferWindowOpen=true | .telemetry={"workflow":"grid-beta.yml","runId":$rid,"runNumber":$rnum,"lastHeartbeat":$now} | .logs = (.logs + [{"type":"rift","text":"[RIFT OPEN]: ALPHA server online! Walk through the portal."}] | .[-25:])' \
+            checkpoints/active/world.json > tmp.json && mv tmp.json checkpoints/active/world.json
           git add checkpoints/active/world.json
           git commit -m "Beta: Rift Open"
-          git pull --rebase
-          git push
+          git pull --rebase && git push
 
-      - name: 7. Transfer Window (Change sleep 30 to 1800 for 30 mins)
-        run: sleep 30
+          # Transfer window (30s test; change to 1800 for 30 mins)
+          sleep 30
 
-      - name: 8. Signal World Closing
-        run: |
+          rm -rf checkpoints/fallback/*
+          cp -r checkpoints/active/* checkpoints/fallback/
+
           git pull --rebase
-          jq '.phase="WORLD_CLOSING" | .entities[].crossed=true | .logs += [{"type":"rift","text":"[CLOSING]: All binaries migrated. Beta shutting down."}]' checkpoints/active/world.json > tmp.json && mv tmp.json checkpoints/active/world.json
-          git add checkpoints/active/world.json
+          NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          jq --arg now "$NOW" --arg rid "$RUN_ID" --arg rnum "$RUN_NUM" \
+            '.phase="WORLD_CLOSING" | .transferWindowOpen=false | .entities[].crossed=true | .telemetry={"workflow":"grid-beta.yml","runId":$rid,"runNumber":$rnum,"lastHeartbeat":$now} | .logs = (.logs + [{"type":"rift","text":"[CLOSING]: Transfer window closed. Beta shutting down."}] | .[-25:])' \
+            checkpoints/active/world.json > tmp.json && mv tmp.json checkpoints/active/world.json
+          git add checkpoints/
           git commit -m "Beta: World Closing"
-          git pull --rebase
-          git push
+          git pull --rebase && git push
