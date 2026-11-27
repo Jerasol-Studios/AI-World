@@ -8,7 +8,539 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       background: #041024;
-      color: #cfe8ff;<!DOCTYPE html>
+      color: #cfe8ff;<!DOCTYP<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>THE GRID // Live Synced 3D World</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #041024;
+      color: #cfe8ff;
+      font-family: 'Courier New', Courier, monospace;
+      overflow: hidden;
+      user-select: none;
+    }
+    canvas { display: block; width: 100vw; height: 100vh; }
+
+    #warp-flash {
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(circle, #ffffff 0%, #38bdf8 45%, #041024 100%);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.6s ease-out;
+      z-index: 50;
+    }
+
+    #crosshair {
+      position: fixed;
+      top: 50%; left: 50%;
+      width: 14px; height: 14px;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+    }
+    #crosshair::before, #crosshair::after {
+      content: ''; position: absolute; background: rgba(56, 189, 248, 0.85);
+    }
+    #crosshair::before { top: 6px; left: 0; width: 14px; height: 2px; }
+    #crosshair::after { left: 6px; top: 0; width: 2px; height: 14px; }
+
+    #hud {
+      position: fixed;
+      top: 16px; left: 16px;
+      background: rgba(5, 20, 45, 0.9);
+      border: 1px solid #1d4ed8;
+      box-shadow: 0 0 18px rgba(37, 99, 235, 0.4);
+      padding: 12px 16px;
+      border-radius: 6px;
+      pointer-events: none;
+      min-width: 350px;
+    }
+    #hud h1 { font-size: 15px; color: #60a5fa; letter-spacing: 2px; }
+    #hud p { font-size: 12px; color: #93c5fd; margin-top: 4px; }
+
+    #telemetry {
+      margin-top: 8px;
+      padding-top: 6px;
+      border-top: 1px solid #1e3a8a;
+      font-size: 11px;
+      color: #a5f3fc;
+      line-height: 1.5;
+    }
+    .dot {
+      display: inline-block; width: 9px; height: 9px;
+      border-radius: 50%; margin-right: 6px;
+      background: #ef4444;
+    }
+    .dot.live { background: #22c55e; box-shadow: 0 0 8px #22c55e; }
+    .dot.stale { background: #f59e0b; box-shadow: 0 0 8px #f59e0b; }
+
+    #rift-alert {
+      display: none;
+      margin-top: 8px;
+      padding: 6px 10px;
+      background: rgba(14, 165, 233, 0.28);
+      border: 1px solid #38bdf8;
+      color: #ffffff;
+      font-weight: bold;
+      font-size: 12px;
+      animation: pulse 1.1s infinite;
+    }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+    #prompt {
+      position: fixed;
+      bottom: 24px; left: 50%;
+      transform: translateX(-50%);
+      background: rgba(6, 24, 54, 0.92);
+      border: 1px solid #38bdf8;
+      padding: 10px 18px;
+      border-radius: 20px;
+      font-size: 12px;
+      color: #e0f2fe;
+      cursor: pointer;
+      box-shadow: 0 0 15px rgba(56, 189, 248, 0.4);
+    }
+
+    #panel {
+      position: fixed;
+      top: 16px; right: 16px;
+      width: 325px;
+      max-height: calc(100vh - 32px);
+      background: rgba(5, 20, 45, 0.9);
+      border: 1px solid #1d4ed8;
+      box-shadow: 0 0 18px rgba(37, 99, 235, 0.4);
+      border-radius: 6px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      pointer-events: none;
+    }
+    .sec-title {
+      font-size: 12px; color: #38bdf8;
+      border-bottom: 1px solid #1e3a8a;
+      padding-bottom: 4px; letter-spacing: 1px;
+    }
+    #inspector {
+      font-size: 11px; line-height: 1.55;
+      background: rgba(10, 31, 68, 0.75);
+      padding: 8px; border-radius: 4px;
+      min-height: 92px;
+    }
+    #feed {
+      font-size: 11px; line-height: 1.45;
+      display: flex; flex-direction: column; gap: 6px;
+      overflow: hidden;
+    }
+    .log {
+      padding: 5px 7px;
+      background: rgba(12, 36, 78, 0.75);
+      border-left: 3px solid #38bdf8;
+    }
+    .log.solver { border-left-color: #f43f5e; color: #fecdd3; }
+    .log.oracle { border-left-color: #facc15; color: #fef08a; }
+    .log.rift { border-left-color: #22d3ee; color: #cffafe; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <div id="warp-flash"></div>
+  <div id="crosshair"></div>
+
+  <div id="hud">
+    <h1 id="server-title"><span id="sync-dot" class="dot"></span>THE GRID // CONNECTING...</h1>
+    <p id="status">Waiting for GitHub Actions YML telemetry...</p>
+    <p id="coords">POS: [0.0, 15.0]</p>
+    <div id="telemetry">
+      WORKFLOW: -- | RUN: --<br>
+      HEARTBEAT: -- | TRANSFER WINDOW: CLOSED
+    </div>
+    <div id="rift-alert">⚡ TRANSFER WINDOW OPEN — WALK INTO RIFT AT CENTER TO JOIN NEXT SERVER!</div>
+  </div>
+
+  <div id="panel">
+    <div class="sec-title">TARGET RETICLE SCANNER</div>
+    <div id="inspector">Aim crosshair at any AI node to inspect its .x86_64 core & .so upgrades.</div>
+    <div class="sec-title">LIVE SERVER TRANSMISSIONS</div>
+    <div id="feed"></div>
+  </div>
+
+  <div id="prompt">CLICK TO LOOK • WASD TO WALK • SHIFT TO SPRINT • SPACE TO JUMP</div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script>
+    const WORLD_URL = "https://raw.githubusercontent.com/Jerasol-Studios/AI-World/main/checkpoints/active/world.json";
+
+    // 1. Scene & Deep Blue Cyber Atmosphere
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x051633);
+    scene.fog = new THREE.FogExp2(0x051633, 0.022);
+
+    const camera = new THREE.PerspectiveCamera(72, window.innerWidth / window.innerHeight, 0.1, 200);
+    camera.position.set(0, 1.8, 15);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    document.body.appendChild(renderer.domElement);
+
+    const floorGrid = new THREE.GridHelper(80, 40, 0x38bdf8, 0x1d4ed8);
+    floorGrid.position.y = 0.01;
+    scene.add(floorGrid);
+
+    const floorMesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(80, 80),
+      new THREE.MeshBasicMaterial({ color: 0x04122b })
+    );
+    floorMesh.rotation.x = -Math.PI / 2;
+    scene.add(floorMesh);
+
+    const horizonRing = new THREE.Mesh(
+      new THREE.RingGeometry(36, 36.4, 64),
+      new THREE.MeshBasicMaterial({ color: 0x38bdf8, side: THREE.DoubleSide })
+    );
+    horizonRing.rotation.x = -Math.PI / 2;
+    horizonRing.position.y = 0.03;
+    scene.add(horizonRing);
+
+    scene.add(new THREE.AmbientLight(0x60a5fa, 0.85));
+    const dirLight = new THREE.DirectionalLight(0x93c5fd, 1.0);
+    dirLight.position.set(10, 25, 10);
+    scene.add(dirLight);
+
+    // 2. Dimensional Rift Portal at [0, 0] — Hidden unless transferWindowOpen === true
+    const riftGroup = new THREE.Group();
+    riftGroup.position.set(0, 2.4, 0);
+    riftGroup.visible = false;
+
+    const outerTorus = new THREE.Mesh(
+      new THREE.TorusGeometry(2.1, 0.14, 16, 48),
+      new THREE.MeshBasicMaterial({ color: 0x38bdf8 })
+    );
+    const innerTorus = new THREE.Mesh(
+      new THREE.TorusGeometry(1.55, 0.08, 16, 48),
+      new THREE.MeshBasicMaterial({ color: 0xfacc15 })
+    );
+    const vortexDisc = new THREE.Mesh(
+      new THREE.CircleGeometry(1.95, 32),
+      new THREE.MeshBasicMaterial({ color: 0x0ea5e9, transparent: true, opacity: 0.45, side: THREE.DoubleSide })
+    );
+    riftGroup.add(outerTorus, innerTorus, vortexDisc);
+    scene.add(riftGroup);
+
+    // 3. Live Sync State
+    let world = null;
+    let playerServer = null;
+    let isWarping = false;
+    let lastFetchOk = false;
+
+    const entityMeshes = new Map();
+    const typeColors = {
+      modular: 0x38bdf8,
+      locked: 0x94a3b8,
+      infected: 0xf43f5e,
+      oracle: 0xfacc15
+    };
+
+    function makeLabelSprite(text, hexColor) {
+      const c = document.createElement("canvas");
+      c.width = 512; c.height = 128;
+      const g = c.getContext("2d");
+      g.fillStyle = "rgba(4, 18, 43, 0.82)";
+      g.fillRect(24, 24, 464, 80);
+      g.strokeStyle = hexColor;
+      g.lineWidth = 4;
+      g.strokeRect(24, 24, 464, 80);
+      g.fillStyle = "#e0f2fe";
+      g.font = "bold 28px Courier New";
+      g.textAlign = "center";
+      g.fillText(text, 256, 74);
+
+      const tex = new THREE.CanvasTexture(c);
+      const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true }));
+      sprite.scale.set(4.2, 1.05, 1);
+      return sprite;
+    }
+
+    function isHeartbeatFresh() {
+      const t = world && world.telemetry;
+      if (!t || !t.lastHeartbeat) return false;
+      const ageSec = (Date.now() - Date.parse(t.lastHeartbeat)) / 1000;
+      return ageSec < 180;
+    }
+
+    function isTransferActive() {
+      if (!world || !lastFetchOk) return false;
+      return world.phase === "RIFT_OPEN" && world.transferWindowOpen === true && playerServer === world.server;
+    }
+
+    function rebuildEntities() {
+      if (!world) return;
+      entityMeshes.forEach(({ group }) => scene.remove(group));
+      entityMeshes.clear();
+
+      const cellScale = 2.5;
+      const offset = ((world.gridSize || 12) * cellScale) / 2;
+
+      world.entities.forEach(ent => {
+        if (ent.crossed) return;
+
+        const group = new THREE.Group();
+        const wx = ent.x * cellScale - offset;
+        const wz = ent.y * cellScale - offset;
+        group.position.set(wx, 0, wz);
+
+        const colHex = typeColors[ent.type] || 0x38bdf8;
+        const cssCol = "#" + colHex.toString(16).padStart(6, "0");
+
+        const geo = ent.type === "oracle"
+          ? new THREE.OctahedronGeometry(0.75, 0)
+          : new THREE.CylinderGeometry(0.45, 0.55, 2.0, 8);
+        const body = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({
+          color: colHex,
+          emissive: colHex,
+          emissiveIntensity: 0.45,
+          wireframe: ent.type === "locked"
+        }));
+        body.position.y = ent.type === "oracle" ? 1.8 : 1.0;
+        body.userData = { entity: ent };
+        group.add(body);
+
+        const baseRing = new THREE.Mesh(
+          new THREE.RingGeometry(0.7, 0.9, 24),
+          new THREE.MeshBasicMaterial({ color: colHex, side: THREE.DoubleSide })
+        );
+        baseRing.rotation.x = -Math.PI / 2;
+        baseRing.position.y = 0.03;
+        group.add(baseRing);
+
+        const label = makeLabelSprite(ent.id, cssCol);
+        label.position.set(0, 2.8, 0);
+        group.add(label);
+
+        scene.add(group);
+        entityMeshes.set(ent.id, { group, body, ent });
+      });
+
+      updateRiftUI();
+    }
+
+    function updateRiftUI() {
+      if (!world) return;
+      const showRift = isTransferActive();
+      riftGroup.visible = showRift;
+      document.getElementById("rift-alert").style.display = showRift ? "block" : "none";
+
+      const activeSrv = playerServer || world.server;
+      floorGrid.material.color.setHex(activeSrv === "BETA" ? 0x6366f1 : 0x38bdf8);
+
+      const t = world.telemetry || {};
+      let dotClass = "dot";
+      let ageLabel = "NO SIGNAL";
+      let connState = "DISCONNECTED";
+      if (t.lastHeartbeat) {
+        const ageSec = Math.max(0, Math.floor((Date.now() - Date.parse(t.lastHeartbeat)) / 1000));
+        ageLabel = `${ageSec}s ago`;
+        if (ageSec < 180) {
+          dotClass = "dot live";
+          connState = "CONNECTED";
+        } else {
+          dotClass = "dot stale";
+          connState = "STASIS / IDLE";
+        }
+      }
+
+      document.getElementById("server-title").innerHTML =
+        `<span class="${dotClass}"></span>THE GRID // SERVER: ${activeSrv} (SESSION #${world.session})`;
+      document.getElementById("status").textContent =
+        `STATUS: ${connState} | PHASE: ${world.phase}`;
+      document.getElementById("telemetry").innerHTML =
+        `YML: ${t.workflow || "NONE"} | RUN #${t.runNumber || "--"} (ID: ${t.runId || "--"})<br>` +
+        `HEARTBEAT: ${ageLabel} | TRANSFER: <strong>${showRift ? "OPEN (RIFT ACTIVE)" : "CLOSED"}</strong>`;
+    }
+
+    function renderFeed() {
+      if (!world) return;
+      const feed = document.getElementById("feed");
+      feed.innerHTML = world.logs.slice(-7).map(l =>
+        `<div class="log ${l.type || ''}">${l.text}</div>`
+      ).join("");
+    }
+
+    function triggerServerJump(targetServer) {
+      if (isWarping) return;
+      isWarping = true;
+      const flash = document.getElementById("warp-flash");
+      flash.style.opacity = "1";
+
+      setTimeout(() => {
+        playerServer = targetServer || world.nextServer;
+        camera.position.set(0, 1.8, 12);
+        riftGroup.visible = false;
+        document.getElementById("rift-alert").style.display = "none";
+
+        world.logs.push({
+          type: "rift",
+          text: `[ARCHITECT WARP]: Transferred through Rift onto ${playerServer}!`
+        });
+
+        updateRiftUI();
+        renderFeed();
+        flash.style.opacity = "0";
+        isWarping = false;
+      }, 650);
+    }
+
+    // 4. First-Person Controls
+    let yaw = 0, pitch = 0, velY = 0, onGround = true;
+    const keys = {};
+    const promptEl = document.getElementById("prompt");
+
+    promptEl.addEventListener("click", () => renderer.domElement.requestPointerLock());
+    renderer.domElement.addEventListener("click", () => renderer.domElement.requestPointerLock());
+
+    document.addEventListener("pointerlockchange", () => {
+      promptEl.style.display = document.pointerLockElement === renderer.domElement ? "none" : "block";
+    });
+
+    document.addEventListener("mousemove", e => {
+      if (document.pointerLockElement !== renderer.domElement) return;
+      yaw -= e.movementX * 0.0022;
+      pitch -= e.movementY * 0.0022;
+      pitch = Math.max(-Math.PI / 2.2, Math.min(Math.PI / 2.2, pitch));
+    });
+
+    window.addEventListener("keydown", e => { keys[e.code] = true; });
+    window.addEventListener("keyup", e => { keys[e.code] = false; });
+
+    window.addEventListener("resize", () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    const raycaster = new THREE.Raycaster();
+    function scanCenterReticle() {
+      raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+      const bodies = Array.from(entityMeshes.values()).map(v => v.body);
+      const hits = raycaster.intersectObjects(bodies);
+      const box = document.getElementById("inspector");
+      if (hits.length > 0) {
+        const ent = hits[0].object.userData.entity;
+        const mods = ent.modules && ent.modules.length ? ent.modules.join(", ") : "None (Static)";
+        box.innerHTML = `<strong>BINARY:</strong> ${ent.id}<br>
+          <strong>TYPE:</strong> ${ent.type.toUpperCase()}<br>
+          <strong>GRID POS:</strong> [${ent.x}, ${ent.y}]<br>
+          <strong>COMPUTE:</strong> ${ent.compute} cycles<br>
+          <strong>.SO MODULES:</strong> ${mods}<br>
+          <strong>STATUS:</strong> ${ent.status}`;
+      }
+    }
+
+    // 5. Animation Loop
+    const clock = new THREE.Clock();
+    function animate() {
+      requestAnimationFrame(animate);
+      const dt = Math.min(clock.getDelta(), 0.1);
+      const elapsed = clock.getElapsedTime();
+
+      camera.rotation.order = "YXZ";
+      camera.rotation.y = yaw;
+      camera.rotation.x = pitch;
+
+      if (keys["KeyQ"] || keys["ArrowLeft"]) yaw += 1.8 * dt;
+      if (keys["KeyE"] || keys["ArrowRight"]) yaw -= 1.8 * dt;
+
+      const speed = (keys["ShiftLeft"] ? 14 : 8) * dt;
+      const forward = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw));
+      const right = new THREE.Vector3(Math.cos(yaw), 0, -Math.sin(yaw));
+      if (keys["KeyW"] || keys["ArrowUp"]) camera.position.addScaledVector(forward, speed);
+      if (keys["KeyS"] || keys["ArrowDown"]) camera.position.addScaledVector(forward, -speed);
+      if (keys["KeyD"]) camera.position.addScaledVector(right, speed);
+      if (keys["KeyA"]) camera.position.addScaledVector(right, -speed);
+
+      if (keys["Space"] && onGround) { velY = 6.5; onGround = false; }
+      velY -= 16 * dt;
+      camera.position.y += velY * dt;
+      if (camera.position.y <= 1.8) { camera.position.y = 1.8; velY = 0; onGround = true; }
+
+      camera.position.x = Math.max(-35, Math.min(35, camera.position.x));
+      camera.position.z = Math.max(-35, Math.min(35, camera.position.z));
+
+      document.getElementById("coords").textContent =
+        `POS: [${camera.position.x.toFixed(1)}, ${camera.position.z.toFixed(1)}]`;
+
+      // Rift ONLY renders and accepts collision during the active transfer window
+      if (isTransferActive()) {
+        outerTorus.rotation.z = elapsed * 1.8;
+        innerTorus.rotation.z = -elapsed * 2.6;
+        vortexDisc.scale.setScalar(1 + Math.sin(elapsed * 4) * 0.06);
+
+        entityMeshes.forEach(({ group, ent }) => {
+          const dist = Math.hypot(group.position.x, group.position.z);
+          if (dist > 0.6) {
+            group.position.x -= (group.position.x / dist) * 2.2 * dt;
+            group.position.z -= (group.position.z / dist) * 2.2 * dt;
+          } else if (!ent.crossed) {
+            ent.crossed = true;
+            rebuildEntities();
+          }
+        });
+
+        if (Math.hypot(camera.position.x, camera.position.z) < 2.1) {
+          triggerServerJump(world.nextServer);
+        }
+      }
+
+      entityMeshes.forEach(({ body, ent }) => {
+        body.rotation.y = elapsed * (ent.type === "oracle" ? 1.2 : 0.5);
+        if (ent.type === "oracle") body.position.y = 1.8 + Math.sin(elapsed * 2.5) * 0.2;
+      });
+
+      scanCenterReticle();
+      renderer.render(scene, camera);
+    }
+
+    // 6. Real-Time Poll to GitHub YAML World State (Every 3 Seconds)
+    async function syncWorld() {
+      try {
+        const res = await fetch(WORLD_URL + "?t=" + Date.now(), { cache: "no-store" });
+        if (!res.ok) {
+          lastFetchOk = false;
+          riftGroup.visible = false;
+          return;
+        }
+        const remote = await res.json();
+        lastFetchOk = true;
+        if (!playerServer) playerServer = remote.server;
+
+        // If the previous server finished closing and the next server took over, pull player across
+        if (remote.phase === "ACTIVE_SIMULATION" && playerServer !== remote.server && !isWarping) {
+          world = remote;
+          triggerServerJump(remote.server);
+          return;
+        }
+
+        world = remote;
+        rebuildEntities();
+        renderFeed();
+      } catch (e) {
+        lastFetchOk = false;
+        riftGroup.visible = false;
+        document.getElementById("status").textContent = "Disconnected from GitHub YAML stream";
+      }
+    }
+
+    syncWorld();
+    setInterval(syncWorld, 3000);
+    setInterval(updateRiftUI, 1000);
+    animate();
+  </script>
+</body>
+</html>E html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
