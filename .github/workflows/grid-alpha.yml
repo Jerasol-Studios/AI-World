@@ -3,7 +3,7 @@ name: Grid Alpha
 on:
   workflow_dispatch:
     inputs:
-      hop:
+      session:
         default: '1'
 
 permissions:
@@ -13,30 +13,54 @@ permissions:
 jobs:
   alpha:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
         with:
           token: ${{ secrets.PAT_TOKEN }}
 
-      - name: Run for 5 seconds & Log
+      - name: 1. Announce ALPHA Active
         env:
-          HOP: ${{ github.event.inputs.hop || '1' }}
+          SESSION: ${{ github.event.inputs.session || '1' }}
         run: |
-          echo "Alpha running Hop #$HOP..."
-          sleep 5
-          echo "Hop #$HOP finished by Alpha at $(date)" >> log.txt
-
+          jq --arg s "$SESSION" '.server="ALPHA" | .nextServer="BETA" | .session=($s|tonumber) | .phase="ACTIVE_SIMULATION" | .incomingServerReady=false | .entities[].crossed=false | .logs += [{"type":"system","text":"[ALPHA]: Session #\($s) active."}]' checkpoints/active/world.json > tmp.json && mv tmp.json checkpoints/active/world.json
           git config user.name "Grid Bot"
           git config user.email "bot@://github.com"
-          git add log.txt
-          git commit -m "Hop $HOP (Alpha)"
+          git add checkpoints/active/world.json
+          git commit -m "Alpha S$SESSION: Active"
           git push
 
-      - name: Start Beta
+      - name: 2. Run Active Simulation (Change sleep 60 to 4800 for 80 mins)
+        run: sleep 60
+
+      - name: 3. Boot Next Server (BETA) First
         env:
           GH_TOKEN: ${{ secrets.PAT_TOKEN }}
-          HOP: ${{ github.event.inputs.hop || '1' }}
+          SESSION: ${{ github.event.inputs.session || '1' }}
         run: |
-          NEXT=$(( HOP + 1 ))
-          gh workflow run grid-beta.yml -f hop="$NEXT"
+          NEXT=$(( SESSION + 1 ))
+          gh workflow run grid-beta.yml -f session="$NEXT"
+
+      - name: 4. Wait for BETA Ready, Then Open Rift
+        run: |
+          for i in {1..30}; do
+            git pull --rebase
+            READY=$(jq -r '.incomingServerReady' checkpoints/active/world.json)
+            if [ "$READY" = "true" ]; then break; fi
+            sleep 3
+          done
+          jq '.phase="RIFT_OPEN" | .logs += [{"type":"rift","text":"[RIFT OPEN]: BETA server online! Walk through the portal to transfer."}]' checkpoints/active/world.json > tmp.json && mv tmp.json checkpoints/active/world.json
+          git add checkpoints/active/world.json
+          git commit -m "Alpha: Rift Open"
+          git push
+
+      - name: 5. Transfer Window (Change sleep 30 to 1800 for 30 mins)
+        run: sleep 30
+
+      - name: 6. Signal World Closing
+        run: |
+          git pull --rebase
+          jq '.phase="WORLD_CLOSING" | .entities[].crossed=true | .logs += [{"type":"rift","text":"[CLOSING]: All binaries migrated. Alpha shutting down."}]' checkpoints/active/world.json > tmp.json && mv tmp.json checkpoints/active/world.json
+          git add checkpoints/active/world.json
+          git commit -m "Alpha: World Closing"
+          git push
