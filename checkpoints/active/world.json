@@ -1,0 +1,17 @@
+{
+  "server": "ALPHA",
+  "nextServer": "BETA",
+  "session": 1,
+  "phase": "ACTIVE_SIMULATION",
+  "incomingServerReady": false,
+  "gridSize": 12,
+  "entities": [
+    { "id": "seeker_01.x86_64", "type": "modular", "x": 3, "y": 4, "compute": 42, "modules": ["vision_boost.so"], "status": "Online", "crossed": false },
+    { "id": "purist_02.x86_64", "type": "locked", "x": 8, "y": 3, "compute": 19, "modules": [], "status": "Static Core", "crossed": false },
+    { "id": "warden_03.x86_64", "type": "modular", "x": 5, "y": 8, "compute": 65, "modules": ["compiler_forge.so"], "status": "Patrolling", "crossed": false },
+    { "id": "oracle.x86_64", "type": "oracle", "x": 8, "y": 8, "compute": 999, "modules": ["gemini_bridge.so"], "status": "Observing", "crossed": false }
+  ],
+  "logs": [
+    { "type": "system", "text": "[GRID]: World state initialized." }
+  ]
+}
