@@ -2,7 +2,7 @@
   "server": "BETA",
   "nextServer": "ALPHA",
   "session": 2,
-  "phase": "ACTIVE_SIMULATION",
+  "phase": "RIFT_OPEN",
   "incomingServerReady": true,
   "gridSize": 12,
   "entities": [
@@ -101,6 +101,10 @@
     {
       "type": "system",
       "text": "[BETA]: Session #2 active. Welcome through the Rift."
+    },
+    {
+      "type": "rift",
+      "text": "[RIFT OPEN]: ALPHA server online! Walk through the portal to transfer."
     }
   ]
 }
