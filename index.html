@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>THE GRID // 3D First-Person Observer</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #041024;
+      color: #cfe8ff;
+      font-family: 'Courier New', Courier, monospace;
+      overflow: hidden;
+      user-select: none;
+    }
+    canvas { display: block; width: 100vw; height: 100vh; }
+
+    /* Warp Flash Overlay when walking through the Rift */
+    #warp-flash {
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(circle, #ffffff 0%, #38bdf8 45%, #041024 100%);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.6s ease-out;
+      z-index: 50;
+    }
+
+    #crosshair {
+      position: fixed;
+      top: 50%; left: 50%;
+      width: 14px; height: 14px;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+    }
+    #crosshair::before, #crosshair::after {
+      content: ''; position: absolute; background: rgba(56, 189, 248, 0.85);
+    }
+    #crosshair::before { top: 6px; left: 0; width: 14px; height: 2px; }
+    #crosshair::after { left: 6px; top: 0; width: 2px; height: 14px; }
+
+    #hud {
+      position: fixed;
+      top: 16px; left: 16px;
+      background: rgba(5, 20, 45, 0.85);
+      border: 1px solid #1d4ed8;
+      box-shadow: 0 0 18px rgba(37, 99, 235, 0.35);
+      padding: 12px 16px;
+      border-radius: 6px;
+      pointer-events: none;
+    }
+    #hud h1 { font-size: 15px; color: #60a5fa; letter-spacing: 2px; }
+    #hud p { font-size: 12px; color: #93c5fd; margin-top: 4px; }
+    #rift-alert {
+      display: none;
+      margin-top: 8px;
+      padding: 6px 10px;
+      background: rgba(14, 165, 233, 0.25);
+      border: 1px solid #38bdf8;
+      color: #ffffff;
+      font-weight: bold;
+      font-size: 12px;
+      animation: pulse 1.2s infinite;
+    }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.55; } }
+
+    #prompt {
+      position: fixed;
+      bottom: 24px; left: 50%;
+      transform: translateX(-50%);
+      background: rgba(6, 24, 54, 0.92);
+      border: 1px solid #38bdf8;
+      padding: 10px 18px;
+      border-radius: 20px;
+      font-size: 12px;
+      color: #e0f2fe;
+      cursor: pointer;
+      box-shadow: 0 0 15px rgba(56, 189, 248, 0.4);
+    }
+
+    #panel {
+      position: fixed;
+      top: 16px; right: 16px;
+      width: 315px;
+      max-height: calc(100vh - 32px);
+      background: rgba(5, 20, 45, 0.85);
+      border: 1px solid #1d4ed8;
+      box-shadow: 0 0 18px rgba(37, 99, 235, 0.35);
+      border-radius: 6px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      pointer-events: none;
+    }
+    .sec-title {
+      font-size: 12px; color: #38bdf8;
+      border-bottom: 1px solid #1e3a8a;
+      padding-bottom: 4px; letter-spacing: 1px;
+    }
+    #inspector {
+      font-size: 11px; line-height: 1.55;
+      background: rgba(10, 31, 68, 0.75);
+      padding: 8px; border-radius: 4px;
+      min-height: 92px;
+    }
+    #feed {
+      font-size: 11px; line-height: 1.45;
+      display: flex; flex-direction: column; gap: 6px;
+      overflow: hidden;
+    }
+    .log {
+      padding: 5px 7px;
+      background: rgba(12, 36, 78, 0.75);
+      border-left: 3px solid #38bdf8;
+    }
+    .log.solver { border-left-color: #f43f5e; color: #fecdd3; }
+    .log.oracle { border-left-color: #facc15; color: #fef08a; }
+    .log.rift { border-left-color: #22d3ee; color: #cffafe; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <div id="warp-flash"></div>
+  <div id="crosshair"></div>
+
+  <div id="hud">
+    <h1 id="server-title">THE GRID // SERVER: ALPHA (SESSION #1)</h1>
+    <p id="status">Syncing Jerasol-Studios/AI-World...</p>
+    <p id="coords">POS: [0.0, 15.0]</p>
+    <div id="rift-alert">⚡ DIMENSIONAL RIFT OPEN AT CENTER [0, 0] — WALK THROUGH TO JOIN NEXT SERVER!</div>
+  </div>
+
+  <div id="panel">
+    <div class="sec-title">TARGET RETICLE SCANNER</div>
+    <div id="inspector">Aim crosshair at any AI node to inspect its .x86_64 core & .so upgrades.</div>
+    <div class="sec-title">LIVE TRANSMISSIONS</div>
+    <div id="feed"></div>
+  </div>
+
+  <div id="prompt">CLICK TO LOOK • WASD TO WALK • SPACE TO JUMP • [R] TEST RIFT</div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script>
+    const WORLD_URL = "https://raw.githubusercontent.com/Jerasol-Studios/AI-World/main/world.json";
+
+    // 1. Scene & Bluish Atmosphere
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x051633);
+    scene.fog = new THREE.FogExp2(0x051633, 0.022);
+
+    const camera = new THREE.PerspectiveCamera(72, window.innerWidth / window.innerHeight, 0.1, 200);
+    camera.position.set(0, 1.8, 15);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    document.body.appendChild(renderer.domElement);
+
+    // 2. Glowing Blue Grid Floor
+    const floorGrid = new THREE.GridHelper(80, 40, 0x38bdf8, 0x1d4ed8);
+    floorGrid.position.y = 0.01;
+    scene.add(floorGrid);
+
+    const floorMesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(80, 80),
+      new THREE.MeshBasicMaterial({ color: 0x04122b })
+    );
+    floorMesh.rotation.x = -Math.PI / 2;
+    scene.add(floorMesh);
+
+    const horizonRing = new THREE.Mesh(
+      new THREE.RingGeometry(36, 36.4, 64),
+      new THREE.MeshBasicMaterial({ color: 0x38bdf8, side: THREE.DoubleSide })
+    );
+    horizonRing.rotation.x = -Math.PI / 2;
+    horizonRing.position.y = 0.03;
+    scene.add(horizonRing);
+
+    scene.add(new THREE.AmbientLight(0x60a5fa, 0.85));
+    const dirLight = new THREE.DirectionalLight(0x93c5fd, 1.0);
+    dirLight.position.set(10, 25, 10);
+    scene.add(dirLight);
+
+    // 3. The 3D Dimensional Rift Portal at [0, 0]
+    const riftGroup = new THREE.Group();
+    riftGroup.position.set(0, 2.4, 0);
+    riftGroup.visible = false;
+
+    const outerTorus = new THREE.Mesh(
+      new THREE.TorusGeometry(2.1, 0.14, 16, 48),
+      new THREE.MeshBasicMaterial({ color: 0x38bdf8 })
+    );
+    const innerTorus = new THREE.Mesh(
+      new THREE.TorusGeometry(1.55, 0.08, 16, 48),
+      new THREE.MeshBasicMaterial({ color: 0xfacc15 })
+    );
+    const vortexDisc = new THREE.Mesh(
+      new THREE.CircleGeometry(1.95, 32),
+      new THREE.MeshBasicMaterial({
+        color: 0x0ea5e9,
+        transparent: true,
+        opacity: 0.45,
+        side: THREE.DoubleSide
+      })
+    );
+    riftGroup.add(outerTorus, innerTorus, vortexDisc);
+    scene.add(riftGroup);
+
+    // 4. World State
+    let world = {
+      server: "ALPHA",
+      nextServer: "BETA",
+      session: 1,
+      phase: "ACTIVE_SIMULATION",
+      gridSize: 12,
+      entities: [
+        { id: "seeker_01.x86_64", type: "modular", x: 3, y: 4, compute: 42, modules: ["vision_boost.so"], status: "Scanning Sector", crossed: false },
+        { id: "purist_02.x86_64", type: "locked", x: 8, y: 3, compute: 19, modules: [], status: "ERROR: dlopen unsupported", crossed: false },
+        { id: "warden_03.x86_64", type: "modular", x: 5, y: 8, compute: 65, modules: ["compiler_forge.so"], status: "Guarding perimeter", crossed: false },
+        { id: "oracle.x86_64", type: "oracle", x: 8, y: 8, compute: 999, modules: ["gemini_bridge.so"], status: "Observing The Grid", crossed: false }
+      ],
+      logs: [
+        { type: "system", text: "[GRID]: Connected to 3D Sector. Press [R] anytime to simulate Rift Opening." },
+        { type: "oracle", text: "[ORACLE]: Monitoring active binaries." }
+      ]
+    };
+
+    const entityMeshes = new Map();
+    const typeColors = {
+      modular: 0x38bdf8,
+      locked: 0x94a3b8,
+      infected: 0xf43f5e,
+      oracle: 0xfacc15
+    };
+
+    function makeLabelSprite(text, hexColor) {
+      const c = document.createElement("canvas");
+      c.width = 512; c.height = 128;
+      const g = c.getContext("2d");
+      g.fillStyle = "rgba(4, 18, 43, 0.82)";
+      g.fillRect(24, 24, 464, 80);
+      g.strokeStyle = hexColor;
+      g.lineWidth = 4;
+      g.strokeRect(24, 24, 464, 80);
+      g.fillStyle = "#e0f2fe";
+      g.font = "bold 28px Courier New";
+      g.textAlign = "center";
+      g.fillText(text, 256, 74);
+
+      const tex = new THREE.CanvasTexture(c);
+      const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true }));
+      sprite.scale.set(4.2, 1.05, 1);
+      return sprite;
+    }
+
+    function rebuildEntities() {
+      entityMeshes.forEach(({ group }) => scene.remove(group));
+      entityMeshes.clear();
+
+      const cellScale = 2.5;
+      const offset = ((world.gridSize || 12) * cellScale) / 2;
+
+      world.entities.forEach(ent => {
+        if (ent.crossed) return; // Already crossed into next server!
+
+        const group = new THREE.Group();
+        const wx = ent.x * cellScale - offset;
+        const wz = ent.y * cellScale - offset;
+        group.position.set(wx, 0, wz);
+
+        const colHex = typeColors[ent.type] || 0x38bdf8;
+        const cssCol = "#" + colHex.toString(16).padStart(6, "0");
+
+        const geo = ent.type === "oracle"
+          ? new THREE.OctahedronGeometry(0.75, 0)
+          : new THREE.CylinderGeometry(0.45, 0.55, 2.0, 8);
+        const body = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({
+          color: colHex,
+          emissive: colHex,
+          emissiveIntensity: 0.45,
+          wireframe: ent.type === "locked"
+        }));
+        body.position.y = ent.type === "oracle" ? 1.8 : 1.0;
+        body.userData = { entity: ent };
+        group.add(body);
+
+        const baseRing = new THREE.Mesh(
+          new THREE.RingGeometry(0.7, 0.9, 24),
+          new THREE.MeshBasicMaterial({ color: colHex, side: THREE.DoubleSide })
+        );
+        baseRing.rotation.x = -Math.PI / 2;
+        baseRing.position.y = 0.03;
+        group.add(baseRing);
+
+        const label = makeLabelSprite(ent.id, cssCol);
+        label.position.set(0, 2.8, 0);
+        group.add(label);
+
+        scene.add(group);
+        entityMeshes.set(ent.id, { group, body, ent });
+      });
+
+      updateRiftUI();
+    }
+
+    function updateRiftUI() {
+      const isRiftOpen = world.phase === "RIFT_OPEN";
+      riftGroup.visible = isRiftOpen;
+      document.getElementById("rift-alert").style.display = isRiftOpen ? "block" : "none";
+      document.getElementById("server-title").textContent =
+        `THE GRID // SERVER: ${world.server || "ALPHA"} (SESSION #${world.session})`;
+      document.getElementById("status").textContent =
+        `PHASE: ${world.phase} | NEXT SERVER: ${world.nextServer || "BETA"}`;
+    }
+
+    function renderFeed() {
+      const feed = document.getElementById("feed");
+      feed.innerHTML = world.logs.slice(-7).map(l =>
+        `<div class="log ${l.type || ''}">${l.text}</div>`
+      ).join("");
+    }
+
+    // 5. Trigger Rift Warp when Player Walks Through [0, 0]
+    let isWarping = false;
+    function triggerServerJump() {
+      if (isWarping) return;
+      isWarping = true;
+      const flash = document.getElementById("warp-flash");
+      flash.style.opacity = "1";
+
+      setTimeout(() => {
+        // Crossed into the new server!
+        const oldServer = world.server || "ALPHA";
+        const newServer = world.nextServer || (oldServer === "ALPHA" ? "BETA" : "ALPHA");
+        world.server = newServer;
+        world.nextServer = oldServer;
+        world.session += 1;
+        world.phase = "ACTIVE_SIMULATION";
+
+        // Respawn all entities on the new server
+        world.entities.forEach(e => { e.crossed = false; e.status = `Active on ${newServer}`; });
+        world.logs.push({
+          type: "rift",
+          text: `[RIFT TRANSFER]: You and all .x86_64 binaries crossed from ${oldServer} -> ${newServer} (Session #${world.session})!`
+        });
+
+        // Step player out of the portal on the new side
+        camera.position.set(0, 1.8, 12);
+        rebuildEntities();
+        renderFeed();
+
+        flash.style.opacity = "0";
+        isWarping = false;
+      }, 650);
+    }
+
+    // Manual Rift Test Key [R]
+    function openTestRift() {
+      if (world.phase === "RIFT_OPEN") return;
+      world.phase = "RIFT_OPEN";
+      world.logs.push({
+        type: "rift",
+        text: `[TRANSFER WINDOW]: Server ${world.nextServer} is ONLINE! Rift opened at [0, 0]. Entities migrating...`
+      });
+      updateRiftUI();
+      renderFeed();
+    }
+
+    // 6. Controls
+    let yaw = 0, pitch = 0, velY = 0, onGround = true;
+    const keys = {};
+    const promptEl = document.getElementById("prompt");
+
+    promptEl.addEventListener("click", () => renderer.domElement.requestPointerLock());
+    renderer.domElement.addEventListener("click", () => renderer.domElement.requestPointerLock());
+
+    document.addEventListener("pointerlockchange", () => {
+      promptEl.style.display = document.pointerLockElement === renderer.domElement ? "none" : "block";
+    });
+
+    document.addEventListener("mousemove", e => {
+      if (document.pointerLockElement !== renderer.domElement) return;
+      yaw -= e.movementX * 0.0022;
+      pitch -= e.movementY * 0.0022;
+      pitch = Math.max(-Math.PI / 2.2, Math.min(Math.PI / 2.2, pitch));
+    });
+
+    window.addEventListener("keydown", e => {
+      keys[e.code] = true;
+      if (e.code === "KeyR") openTestRift();
+    });
+    window.addEventListener("keyup", e => { keys[e.code] = false; });
+
+    window.addEventListener("resize", () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    const raycaster = new THREE.Raycaster();
+    function scanCenterReticle() {
+      raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+      const bodies = Array.from(entityMeshes.values()).map(v => v.body);
+      const hits = raycaster.intersectObjects(bodies);
+      const box = document.getElementById("inspector");
+      if (hits.length > 0) {
+        const ent = hits[0].object.userData.entity;
+        const mods = ent.modules && ent.modules.length ? ent.modules.join(", ") : "None (Static)";
+        box.innerHTML = `<strong>BINARY:</strong> ${ent.id}<br>
+          <strong>TYPE:</strong> ${ent.type.toUpperCase()}<br>
+          <strong>GRID POS:</strong> [${ent.x}, ${ent.y}]<br>
+          <strong>COMPUTE:</strong> ${ent.compute} cycles<br>
+          <strong>.SO MODULES:</strong> ${mods}<br>
+          <strong>STATUS:</strong> ${ent.status}`;
+      }
+    }
+
+    // 7. Animation & Rift Migration Loop
+    const clock = new THREE.Clock();
+    function animate() {
+      requestAnimationFrame(animate);
+      const dt = Math.min(clock.getDelta(), 0.1);
+      const elapsed = clock.getElapsedTime();
+
+      camera.rotation.order = "YXZ";
+      camera.rotation.y = yaw;
+      camera.rotation.x = pitch;
+
+      if (keys["KeyQ"] || keys["ArrowLeft"]) yaw += 1.8 * dt;
+      if (keys["KeyE"] || keys["ArrowRight"]) yaw -= 1.8 * dt;
+
+      const speed = (keys["ShiftLeft"] ? 14 : 8) * dt;
+      const forward = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw));
+      const right = new THREE.Vector3(Math.cos(yaw), 0, -Math.sin(yaw));
+      if (keys["KeyW"] || keys["ArrowUp"]) camera.position.addScaledVector(forward, speed);
+      if (keys["KeyS"] || keys["ArrowDown"]) camera.position.addScaledVector(forward, -speed);
+      if (keys["KeyD"]) camera.position.addScaledVector(right, speed);
+      if (keys["KeyA"]) camera.position.addScaledVector(right, -speed);
+
+      if (keys["Space"] && onGround) { velY = 6.5; onGround = false; }
+      velY -= 16 * dt;
+      camera.position.y += velY * dt;
+      if (camera.position.y <= 1.8) { camera.position.y = 1.8; velY = 0; onGround = true; }
+
+      camera.position.x = Math.max(-35, Math.min(35, camera.position.x));
+      camera.position.z = Math.max(-35, Math.min(35, camera.position.z));
+
+      document.getElementById("coords").textContent =
+        `POS: [${camera.position.x.toFixed(1)}, ${camera.position.z.toFixed(1)}]`;
+
+      // Animate Rift Portal & Check if Player Walks Through!
+      if (world.phase === "RIFT_OPEN") {
+        outerTorus.rotation.z = elapsed * 1.8;
+        innerTorus.rotation.z = -elapsed * 2.6;
+        vortexDisc.scale.setScalar(1 + Math.sin(elapsed * 4) * 0.06);
+
+        // Entities walk toward [0,0] and enter the Rift one by one
+        entityMeshes.forEach(({ group, ent }) => {
+          const dist = Math.hypot(group.position.x, group.position.z);
+          if (dist > 0.6) {
+            group.position.x -= (group.position.x / dist) * 2.2 * dt;
+            group.position.z -= (group.position.z / dist) * 2.2 * dt;
+          } else if (!ent.crossed) {
+            ent.crossed = true;
+            world.logs.push({ type: "rift", text: `[MIGRATED]: ${ent.id} entered the Rift -> ${world.nextServer}` });
+            renderFeed();
+            rebuildEntities();
+          }
+        });
+
+        // Player walks through the Rift at [0, 0]
+        const playerDistToRift = Math.hypot(camera.position.x, camera.position.z);
+        if (playerDistToRift < 2.1) {
+          triggerServerJump();
+        }
+      }
+
+      entityMeshes.forEach(({ body, ent }) => {
+        body.rotation.y = elapsed * (ent.type === "oracle" ? 1.2 : 0.5);
+        if (ent.type === "oracle") body.position.y = 1.8 + Math.sin(elapsed * 2.5) * 0.2;
+      });
+
+      scanCenterReticle();
+      renderer.render(scene, camera);
+    }
+
+    // 8. Live Repo Sync
+    async function syncWorld() {
+      try {
+        const res = await fetch(WORLD_URL + "?t=" + Date.now());
+        if (res.ok) {
+          const remoteWorld = await res.json();
+          // Only overwrite if we are currently viewing that server or a new session arrived
+          if (!isWarping) {
+            world = remoteWorld;
+            rebuildEntities();
+            renderFeed();
+          }
+        }
+      } catch {}
+    }
+
+    rebuildEntities();
+    renderFeed();
+    syncWorld();
+    setInterval(syncWorld, 8000);
+    animate();
+  </script>
+</body>
+</html>
