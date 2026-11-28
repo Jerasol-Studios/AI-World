@@ -55,10 +55,6 @@
   ],
   "logs": [
     {
-      "type": "system",
-      "text": "[ALPHA]: Session #35 active (Run #86)."
-    },
-    {
       "type": "rift",
       "text": "[RIFT OPEN]: BETA server online! Walk through the portal."
     },
@@ -153,13 +149,17 @@
     {
       "type": "rift",
       "text": "[RIFT OPEN]: BETA server online! Walk through the portal."
+    },
+    {
+      "type": "rift",
+      "text": "[RIFT OPEN]: ALPHA server online! Walk through the portal."
     }
   ],
   "telemetry": {
-    "workflow": "grid-alpha.yml",
-    "runId": "46108564931",
-    "runNumber": "92",
-    "lastHeartbeat": "2026-11-28T04:42:27Z"
+    "workflow": "grid-beta.yml",
+    "runId": "46106378107",
+    "runNumber": "86",
+    "lastHeartbeat": "2026-11-28T04:42:46Z"
   },
   "transferWindowOpen": true
 }
