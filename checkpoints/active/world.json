@@ -156,10 +156,10 @@
     }
   ],
   "telemetry": {
-    "workflow": "grid-alpha.yml",
-    "runId": "46108564931",
-    "runNumber": "92",
-    "lastHeartbeat": "2026-11-28T04:40:44Z"
+    "workflow": "grid-beta.yml",
+    "runId": "46106378107",
+    "runNumber": "86",
+    "lastHeartbeat": "2026-11-28T04:41:05Z"
   },
   "transferWindowOpen": false
 }
