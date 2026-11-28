@@ -3,7 +3,7 @@
   "nextServer": "BETA",
   "session": 43,
   "phase": "ACTIVE_SIMULATION",
-  "incomingServerReady": false,
+  "incomingServerReady": true,
   "gridSize": 12,
   "entities": [
     {
@@ -156,10 +156,10 @@
     }
   ],
   "telemetry": {
-    "workflow": "grid-alpha.yml",
-    "runId": "46099412561",
-    "runNumber": "90",
-    "lastHeartbeat": "2026-11-28T03:12:46Z"
+    "workflow": "grid-beta.yml",
+    "runId": "46101754674",
+    "runNumber": "85",
+    "lastHeartbeat": "2026-11-28T03:12:54Z"
   },
   "transferWindowOpen": false
 }
